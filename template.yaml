@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: This function monitors successful EC2 Blue/Green deployments and links the green ASG to the original Target Group.
+Resources:
+  ASGCleaner:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 30
+      Handler: app.lambda_handler
+      Runtime: python3.7
+      CodeUri: function/
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - codedeploy:GetDeployment
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - elasticloadbalancing:DescribeTargetGroups
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - autoscaling:AttachLoadBalancerTargetGroups
+              Resource: !Sub "arn:${AWS::Partition}:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/CodeDeploy_BlueGreen_*"
+      Events:
+        FailedDeployments:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - aws.codedeploy
+              detail-type:
+                - CodeDeploy Deployment State-change Notification
+              detail:
+                state:
+                  - SUCCESS
