@@ -5,6 +5,7 @@ asg_client = boto3.client('autoscaling')
 elb_client = boto3.client('elbv2')
 
 def fetchTargetGroupArn(targetGroup):
+    # we only have a target group name, but the linking requires full arn
     try:
         response = elb_client.describe_target_groups(
             Names=[targetGroup]
@@ -15,18 +16,26 @@ def fetchTargetGroupArn(targetGroup):
     
     return targetGroupArn
 
-def linkGreenASG(targetASGs,targetGroupArn):
-    for autoScalingGroup in targetASGs:
-        try:
-            print(f"Attempting to link Auto Scaling Group '{autoScalingGroup}' to target group \'{targetGroupArn.split(':')[-1].split('/')[1]}\'...")
-            response = asg_client.attach_load_balancer_target_groups(
-                AutoScalingGroupName=autoScalingGroup,
-                TargetGroupARNs = [targetGroupArn]
-            )
-        except:
-            raise
-        else:          
-            print("Auto Scaling Group successfully linked.")
+def linkGreenASG(deploymentTargetASGs,targetGroupArn):
+    try:
+        targetASGs = asg_client.describe_auto_scaling_groups(
+            AutoScalingGroupNames=deploymentTargetASGs
+        )
+        if targetASGs["AutoScalingGroups"]:
+            for autoScalingGroup in targetASGs["AutoScalingGroups"]:
+                if autoScalingGroup["HealthCheckType"] == "ELB":
+                        print(f"Attempting to link Auto Scaling Group \'{autoScalingGroup['AutoScalingGroupName']}\' to target group \'{targetGroupArn.split(':')[-1].split('/')[1]}\'...")
+                        response = asg_client.attach_load_balancer_target_groups(
+                            AutoScalingGroupName=autoScalingGroup["AutoScalingGroupName"],
+                            TargetGroupARNs = [targetGroupArn]
+                        )
+                        if response["ResponseMetadata"]["HTTPStatusCode"] == 200: print("The Auto Scaling Group has been linked successfully.")
+                else:
+                    print(f"Auto Scaling Group \'{autoScalingGroup['AutoScalingGroupName']}\' does not use ELB Health Check Type. Skipping attempt to link to Target Group")
+        else:
+            print(f"The Auto Scaling Group(s) {', ' .join(deploymentTargetASGs)} no longer exist. Nothing to do.")
+    except:
+        raise
 
 def lambda_handler(event, context):
     application =  event['detail']['application']
@@ -40,14 +49,14 @@ def lambda_handler(event, context):
         deployment = cd_client.get_deployment(deploymentId=deploymentId)
     except cd_client.exceptions.DeploymentDoesNotExistException as err:
         print(f"Deployment ID {deploymentId} does not exist. Exiting...")
-        raise
+        return None
     except:
         raise
     
     # Only EC2 Blue/Green deployments have 'targetInstances' defined
     if 'targetInstances' in deployment['deploymentInfo']:
-        targetASGs = deployment['deploymentInfo']['targetInstances']['autoScalingGroups']
+        deploymentTargetASGs = deployment['deploymentInfo']['targetInstances']['autoScalingGroups']
         targetGroup = deployment['deploymentInfo']['loadBalancerInfo']['targetGroupInfoList'][0]['name']
-        linkGreenASG(targetASGs,fetchTargetGroupArn(targetGroup))
+        linkGreenASG(deploymentTargetASGs,fetchTargetGroupArn(targetGroup))
     else:
         print("This does not appear to be a valid EC2 Blue/Green deployment. Nothing to do...")

@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: This function monitors successful EC2 Blue/Green deployments and links the green ASG to the original Target Group.
+Description: This function monitors successful EC2 Blue/Green deployments and links the green ASG to the Target Group defined on the CodeDeploy Deployment Group.
 Resources:
   ASGCleaner:
     Type: AWS::Serverless::Function
@@ -22,6 +22,7 @@ Resources:
               Resource: "*"
             - Effect: Allow
               Action:
+                - autoscaling:DescribeAutoScalingGroups
                 - autoscaling:AttachLoadBalancerTargetGroups
               Resource: !Sub "arn:${AWS::Partition}:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/CodeDeploy_BlueGreen_*"
       Events:
