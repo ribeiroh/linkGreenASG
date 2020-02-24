@@ -18,11 +18,11 @@ Resources:
               Resource: "*"
             - Effect: Allow
               Action:
+                - autoscaling:DescribeAutoScalingGroups
                 - elasticloadbalancing:DescribeTargetGroups
               Resource: "*"
             - Effect: Allow
               Action:
-                - autoscaling:DescribeAutoScalingGroups
                 - autoscaling:AttachLoadBalancerTargetGroups
               Resource: !Sub "arn:${AWS::Partition}:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/CodeDeploy_BlueGreen_*"
       Events:
