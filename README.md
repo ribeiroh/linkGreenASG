@@ -6,13 +6,13 @@ Setup instructions:
 
 1. Clone the repository
 
-2. [Install SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
-
-3. Package the SAM template and upload it to S3:  
-   `$ sam package --template-file template.yaml --s3-bucket <S3 Bucket> --output-template-file packaged.yaml`
+2. Package the SAM template and upload it to S3:  
+   `$ aws cloudformation package --template-file template.yaml --s3-bucket <S3 Bucket> --output-template-file packaged.yaml`
+   
+   Note: replace `<S3 Bucket>` with a bucket in the same region of where the stack will be created.
 
 4. Deploy the function with CloudFormation:  
-   `$ sam deploy --template-file packaged.yaml --stack-name linkGreenASG --capabilities CAPABILITY_IAM`
+   `$ aws cloudformation deploy --template-file packaged.yaml --stack-name linkGreenASG --capabilities CAPABILITY_IAM`
 
 This function will attempt to link ASGs for all Blue/Green deployments happening on the account/region where the function is deployed, so not further configuration is needed.
 
